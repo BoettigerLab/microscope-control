@@ -1,14 +1,13 @@
 ## storm-control ##
-This is a repository of code developed in the [Zhuang lab](http://zhuang.harvard.edu) for the acquisition of STORM movies.
+This is the Boettiger Lab fork of the Microscope Control Software "Hal", originally written by Hazen Babcock and  the Zhuang Lab. 
 
 [![DOI](https://zenodo.org/badge/15257214.svg)](https://zenodo.org/badge/latestdoi/15257214)
-
-[Discussion Group](https://groups.google.com/d/forum/storm-analysis)
 
 Warning! There have been many changes and this software is now only compatible with Python3 / PyQt5! If you want the end of the line of the (deprecated) Python2 / PyQt4 software then use the python2_pyqt4 branch.
 
 ## Installation ##
 You will need Python3 and PyQt5 as well as a number of other libraries. Please see the Install.txt file in the hal4000 folder.
+To get the storm-analysis dependencies, it is recommended to download the storm-analysis [wheel](https://github.com/ZhuangLab/storm-analysis/releases) and pip install it.  
 
 ## General notes ##
 1. This software is written primarily in Python with a few C helper libraries.

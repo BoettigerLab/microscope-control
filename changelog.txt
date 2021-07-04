@@ -1,4 +1,16 @@
 
+2021-07-04: Based off current Zhuang lab branch, imported my new modules:
+		- sc_hardware/yokogawa  (spinning disk confocal) 
+		- sc_hardware/CrestOpitcs  (spinning disk confocal) 
+		- sc_hardware/Thorlabs/APTcontroller + module (new stage controllers)
+		- sc_hardware/appliedScientificInstrumentation/illuminaStage (new stage controllers)
+		- To debug:
+			- had to change illuminationChannel to not use startfilm(). apparently I did this earlier too but I've no memory of it.
+		- This update fixes two unexpected crash behaviors:
+			- When using pgrey lock camera module, Hal crashes when filming (though not when locking). 
+			- When parameters are changed (manually or automatically), the focus-lock is unlocked and requires relocking. 
+				- Based of testing on scope5, zhuang lab master does not have the 'silent deactivation' of the focus lock created by merging zhuang lab master into Boettiger master. 
+
 2017-07-26: Changed everything in the process of updating for Python3 and
             PyQt5. The entire configuration of a single setup is now
 	    specified in a single XML file. See storm_control/hal4000/xml

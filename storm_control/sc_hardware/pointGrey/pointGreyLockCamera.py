@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 Point Grey camera used in the context of a focus lock.
-
 Hazen 09/19
 """
 import numpy
@@ -9,12 +8,34 @@ import time
 from PyQt5 import QtCore
 
 import storm_control.sc_hardware.utility.af_lock_c as afLC
-import storm_control.sc_hardware.utility.sa_lock_peak_finder as slpf
-
 import storm_control.sc_hardware.pointGrey.spinnaker as spinnaker
-
 import tifffile
 
+# ===== Import fitting libraries. ===========
+# Numpy fitter, this should always be available.
+import storm_control.sc_hardware.utility.np_lock_peak_finder as npLPF
+
+# Finding/fitting using the storm-analysis project.
+saLPF = None
+try:
+    import storm_control.sc_hardware.utility.sa_lock_peak_finder as saLPF
+except ModuleNotFoundError as mnfe:
+    print(">> Warning! Storm analysis lock fitting module not found. <<")
+    print(mnfe)
+    pass
+
+# Finding using the storm-analysis project, fitting using image correlation.
+cl2DG = None
+try:
+    import storm_control.sc_hardware.utility.corr_lock_c2dg as cl2DG
+except ModuleNotFoundError as mnfe:
+    # Only need one warning about the lack of storm-analysis.
+    pass
+except OSError as ose:
+    print(">> Warning! Correlation lock fitting C library not found. <<")
+    print(ose)
+    pass
+#==============================
 
 class LockCamera(QtCore.QThread):
     """
@@ -47,18 +68,18 @@ class LockCamera(QtCore.QThread):
         # Get the camera & set some defaults.
         self.camera = spinnaker.getCamera(camera_id)
 
-        # In order to turn off pixel defect correction the camera has
-        # to be in video mode 0.
-        self.camera.setProperty("VideoMode", "Mode0")
-        self.camera.setProperty("pgrDefectPixelCorrectionEnable", False)
+        # Only Grasshopper has defect correction 
+        if self.camera.hasProperty("VideoMode"):
+            self.camera.setProperty("VideoMode", parameters.get("video_mode"))
+            self.camera.setProperty("pgrDefectPixelCorrectionEnable", False)
         
         # Set pixel format.
-        self.camera.setProperty("PixelFormat", "Mono16")
+        self.camera.setProperty("PixelFormat", "Mono16")  # Set pixel format.  (Mono16)
 
-        self.camera.setProperty("VideoMode", parameters.get("video_mode"))
                 
         # We don't want any of these 'features'.
-        self.camera.setProperty("AcquisitionFrameRateAuto", "Off")
+        # self.camera.setProperty("AcquisitionFrameRateAuto", "Off")
+        self.camera.setProperty("AcquisitionMode", "Continuous")
         self.camera.setProperty("ExposureAuto", "Off")
         self.camera.setProperty("GainAuto", "Off")        
 
@@ -74,12 +95,6 @@ class LockCamera(QtCore.QThread):
         if self.camera.hasProperty("GammaEnabled"):
             self.camera.setProperty("GammaEnabled", False)
 
-        #
-        # No idea what this means in the context of a black and white
-        # camera. We try and turn it off but that seems to be much
-        # harder to do than one would hope.
-        #
-        self.camera.setProperty("OnBoardColorProcessEnabled", False)
 
         # Verify that we have turned off some of these 'features'.
         for feature in ["pgrDefectPixelCorrectionEnable",
@@ -102,7 +117,8 @@ class LockCamera(QtCore.QThread):
 
         # Use maximum exposure time allowed by desired frame rate.
         #
-        self.camera.setProperty("ExposureTime", self.camera.getProperty("ExposureTime").getMaximum())
+        # self.camera.setProperty("ExposureTime", self.camera.getProperty("ExposureTime").getMaximum())
+        self.camera.setProperty("ExposureTime", 2000.0)  # 20000 50 fps  changed to 500 fps
 
         # Get current offsets.
         #
@@ -173,11 +189,195 @@ class LockCamera(QtCore.QThread):
         self.wait()
         self.camera.shutdown()
 
+class CameraQPD(LockCamera):
+    """
+    QPD emulation class. The default camera ROI of 200x200 pixels.
+    The focus lock is configured so that there are two laser spots on the camera.
+    The distance between these spots is fit and the difference between this distance and the
+    zero distance is returned as the focus lock offset. The maximum value of the camera
+    pixels is returned as the focus lock sum.
+    """
+    def __init__(self, parameters = None, **kwds):
+        kwds["parameters"] = parameters
+        super().__init__(**kwds)
+        
+        self.image = None # will be loaded below
+        self.fit_hl = None
+        self.fit_hr = None
+        
+        self.cnt = 0
+        self.max_backlog = 20
+        self.min_good = parameters.get("min_good")
+        self.reps = parameters.get("reps")
+        self.sum_scale = parameters.get("sum_scale")
+        self.sum_zero = parameters.get("sum_zero")
+        
+        self.good = numpy.zeros(self.reps, dtype = numpy.bool)
+        self.mag = numpy.zeros(self.reps)
+        self.x_off1 = numpy.zeros(self.reps)
+        self.y_off1 = numpy.zeros(self.reps)
+        self.x_off2 = numpy.zeros(self.reps)
+        self.y_off2 = numpy.zeros(self.reps)
+        self.x_width = parameters.get("Width")
+        self.y_width = parameters.get("Height")
+        
+        self.allow_single_fits = False # parameters.get("allow_single_fits") # False 
+        self.sigma = parameters.get("sigma") # 5 
+        self.background = parameters.get("background") # background 
+        self.fit_size = 1.5*self.sigma # parameters.get("fit_size")*self.sigma # 1.5, relative to sigma 
+        
+        
+        # Some derived parameters
+        self.half_x = int(self.x_width/2)
+        self.half_y = int(self.y_width/2)
+        
+        # maybe good things to add 
+        '''
+        self.reps = parameters.get("reps")
+        self.sum_scale = parameters.get("sum_scale")
+        self.sum_zero = parameters.get("sum_zero")
+        self.good = numpy.zeros(self.reps, dtype = numpy.bool)
+        self.mag = numpy.zeros(self.reps)
+        self.x_off = numpy.zeros(self.reps)
+        self.y_off = numpy.zeros(self.reps)
+        '''
+        
+        
+    # def adjustAOI is defined above    
+        
+    def adjustZeroDist(self, inc):
+        self.params_mutex.lock()
+        self.zero_dist += 0.1*inc
+        self.params_mutex.unlock()
+    
+
+    def getImage(self):
+        return [self.image, self.x_off1, self.y_off1, self.x_off2, self.y_off2, self.sigma]
+
+    def analyze(self, frames, frame_size):
+
+        # Only keep the last max_backlog frames if we are falling behind.
+        lf = len(frames)
+        if (lf>self.max_backlog):
+            self.n_dropped += lf - self.max_backlog
+            frames = frames[-self.max_backlog:]
+            
+        dist1 = numpy.zeros(self.reps)
+        dist2 = numpy.zeros(self.reps)
+        for elt in frames:
+            self.n_analyzed += 1
+            frame = elt.getData().reshape(frame_size)
+            # frame = elt.getData().reshape((frame_size[1],frame_size[0]))
+                            # Convert current frame to 8 bit image.
+            image = numpy.right_shift(frame.astype(numpy.uint16), 4).astype(numpy.uint8)
+            if self.fit_hl is None:
+                roi_size = int(3.0 * self.sigma)
+                self.fit_hl = cl2DG.CorrLockFitter(roi_size = roi_size,
+                                                   sigma = self.sigma,
+                                                   threshold = 10)
+                self.fit_hr = cl2DG.CorrLockFitter(roi_size = roi_size,
+                                                   sigma = self.sigma,
+                                                   threshold = 10)
+            
+            # Magnitude calculation.
+            self.mag[self.cnt] = numpy.max(frame) - numpy.mean(frame)
+            
+            
+            [x1, y1, status1] = self.fit_hl.findFitPeak(image[:,:self.half_x])  # find and fit the spot in the left half of the image
+            # consider swapping x and y
+            
+            self.x_off1[self.cnt] = x1 - self.half_y  # vertical distance from the center of the "image" 
+            self.y_off1[self.cnt] = y1 - self.half_x # horizontal distance from the center of "image"
+            dist1[self.cnt] = abs(self.half_x - y1)   # distance from middle
+                    
+            [x2, y2, status2] = self.fit_hr.findFitPeak(image[:,-self.half_x:])  #  find and fit the spot in the right half of the image
+            self.x_off2[self.cnt] = x2 - self.half_y # vertical distance from the center of the "image" 
+            self.y_off2[self.cnt] = y2
+            dist2[self.cnt] = abs(y2)   # distance from middle
+            
+            tmpOffset = 2.0*((y1 - self.half_x + y2) - self.zero_dist)
+            self.good[self.cnt] = status1 and status2
+                
+
+                
+            if False:
+                print('\n\n------------------------\nDebugging findFitPeak')
+                print(f'status1 = {status1}')
+                print(f'status2 = {status2}')
+                print(f'x1 = {self.x_off1[self.cnt]}')
+                print(f'y1 = {self.y_off1[self.cnt]}')
+                print(f'x2 = {self.x_off2[self.cnt]}')
+                print(f'y2 = {self.y_off2[self.cnt]}')
+                print(f'm = {self.mag[self.cnt]}')
+                print(f'offset = {tmpOffset}')
+                
+            if False:
+                print('\n\n------------------------\nDebugging findFitPeak')
+                print(f'x1 = {x1}')
+                print(f'y1 = {y1}')
+                print(f'x2 = {x2}')
+                print(f'y2 = {y2}')
+                print(f'm = {self.mag[self.cnt]}')
+
+            # Check if we have all the samples we need.
+            self.cnt += 1
+            if (self.cnt == self.reps):
+                
+                #debugging save image to check how it looks.
+                # result: frame and image are already scrambled.
+                if False:
+                    numpy.save(r'C:\Users\STORM1\Desktop\focus_lock_debugging\image.npy',image)
+                    numpy.save(r'C:\Users\STORM1\Desktop\focus_lock_debugging\frame.npy',frame)
+                
+                qpd_dict = {"is_good" : True,
+                            "image" : image,
+                            "offset" : 0.0,
+                            "sigma" : self.sigma,
+                            "sum" : 0.0,
+                            "x_off1" : 0.0,
+                            "y_off1" : 0.0,
+                            "x_off2" : 0.0,
+                            "y_off2" : 0.0}
+                            
+                if (numpy.count_nonzero(self.good) < self.min_good):
+                    qpd_dict["is_good"] = False
+                    self.cameraUpdate.emit(qpd_dict)
+                else:
+                    mag = numpy.median(self.mag[self.good])
+                    m1 =  numpy.median(dist1[self.good])
+                    m2 = numpy.median(dist2[self.good])
+                    offset = ((m1 + m2) - self.zero_dist)
+                    if False:
+                        print(f'measured offset = {offset}')
+                    qpd_dict["is_good"] = True  # qpd_dict["image"] = image
+                    qpd_dict["offset"] = offset
+                    qpd_dict["sigma"] = self.sigma
+                    qpd_dict["sum"] = self.sum_scale*mag - self.sum_zero
+                    qpd_dict["x_off1"] = numpy.mean(self.x_off1[self.good])
+                    qpd_dict["y_off1"] = numpy.mean(self.y_off1[self.good])
+                    qpd_dict["x_off2"] = numpy.mean(self.x_off2[self.good])
+                    qpd_dict["y_off2"] = numpy.mean(self.y_off2[self.good])
+                    
+                    self.cameraUpdate.emit(qpd_dict)
+
+                self.cnt = 0
+
+
+    def getZeroDist(self):
+        return self.zero_dist
+
+
+    def shutDown(self):
+        super().shutDown()       
+        if self.fit_hl is not None:
+            self.fit_hl.cleanup()
+            self.fit_hr.cleanup()
+       
+
 
 class AFLockCamera(LockCamera):
     """
     This class works with the auto-focus hardware configuration.
-
     In this configuration there are two spots that move horizontally
     as the focus changes. The spots are shifted vertically so that
     they don't overlap with each other.
@@ -276,7 +476,6 @@ class AFLockCamera(LockCamera):
 class SSLockCamera(LockCamera):
     """
     This class works with the standard IR laser focus lock configuration.
-
     In this configuration there is a single spot that movies horizontally
     as the focus changes.
     """
@@ -395,4 +594,3 @@ class SSLockCamera(LockCamera):
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 #
-
