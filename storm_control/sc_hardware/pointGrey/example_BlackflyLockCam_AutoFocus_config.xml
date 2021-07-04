@@ -1,0 +1,93 @@
+
+   <!-- Focus lock control GUI. -->
+    <focuslock>
+      <class_name type="string">FocusLock</class_name>
+      <module_name type="string">storm_control.hal4000.focusLock.focusLock</module_name>
+      <configuration>
+		<ir_laser type="string">none_irlaser</ir_laser>
+        <ir_power type="int">10</ir_power>
+		<lock_modes type="string">NoLockMode,AlwaysOnLockMode,CalibrationLockMode,ZScanLockMode,HardwareZScanLockMode</lock_modes>
+		<qpd type="string">pgrey_camera</qpd>
+		<z_stage type="string">mcl_zstage</z_stage>
+		<parameters>
+			  <find_sum>
+				<step_size type="float">1.0</step_size>
+			  </find_sum>
+			  <locked>
+				<buffer_length type="int">10</buffer_length>
+				<lock_gain type="float">0.1</lock_gain>
+				<offset_threshold type="float">200.0</offset_threshold>
+			  </locked>
+			  <jump_size type="float">0.1</jump_size>
+		</parameters>
+      </configuration>
+    </focuslock> 
+
+    <none_irlaser>
+      <module_name type="string">storm_control.sc_hardware.none.noneIRLaserModule</module_name>
+      <class_name type="string">NoneIRLaserModule</class_name>
+    </none_irlaser>
+
+
+<!-- Ludl Z piezo -->
+    <mcl_zstage>
+      <module_name type="string">storm_control.sc_hardware.ludl.ludlVoltageZModule</module_name>     
+      <class_name type="string">LudlVoltageZ</class_name>
+      <configuration>
+        <parameters>
+          <center type="float">175.0</center>
+          <has_center_bar type="boolean">True</has_center_bar>
+          <maximum type="float">350.0</maximum>
+          <minimum type="float">0.0</minimum>
+          <warning_high type="float">330.0</warning_high>
+          <warning_low type="float">20.0</warning_low>
+        </parameters>
+        <ao_fn_name type="string">daq.mcl.ao_task</ao_fn_name>
+        <microns_to_volts type="float">0.029</microns_to_volts>  <!--was .05 for 200um/10V updated following hbaic_pgrey_2cam -->
+      </configuration>
+    </mcl_zstage>
+
+<!-- PointGreyLockCamera -->
+<pgrey_camera>
+      <class_name type="string">PointGreyLockCamera</class_name>  
+      <module_name type="string">storm_control.sc_hardware.pointGrey.pointGreyLockCameraModule</module_name>
+      <configuration>
+		<parameters>   
+			<offset_has_center_bar type="boolean">True</offset_has_center_bar>
+			<offset_maximum type="float">100.0</offset_maximum>
+			<offset_minimum type="float">50.0</offset_minimum>
+			<offset_warning_high type="float">95</offset_warning_high>
+			<offset_warning_low type="float">55</offset_warning_low>
+			<sum_maximum type="float">100.0</sum_maximum>
+			<sum_minimum type="float">0.0</sum_minimum>
+			<sum_warning_low type="float">1.0</sum_warning_low>  
+		</parameters>
+		<auto_focus type="boolean">True</auto_focus>
+		<!-- device id from spinview-->
+		<camera_id type="string">21053777</camera_id>
+		<camera_parameters>	  
+			<BlackLevel type="float">1.0</BlackLevel>
+			<Gain type="float">1.0</Gain>
+			<AcquisitionFrameRate type="float">300.0</AcquisitionFrameRate>  <!-- was 30 for AF, that is slow, but may help?-->
+			<Height type="int">128</Height>
+			<Width type="int">128</Width>
+			<OffsetX type="int">232</OffsetX>
+			<OffsetY type="int">160</OffsetY>	  
+			<background type="float">1.0</background>
+			<downsample type="int">1</downsample>
+			<offset type="float">1.0</offset>
+			<min_good type="int">4</min_good>
+			<reps type="int">10</reps>
+			<sigma type="float">3.0</sigma>
+			<sum_scale type="float">0.02</sum_scale>
+			<sum_zero type="float">10.0</sum_zero>
+			<threshold type="float">200.0</threshold>
+			<zero_dist type="float">0.0</zero_dist>  <!-- moves the absolute value of the offset. which is also affected by unit_to_microns -->
+			<!-- These parameters only mattter for "auto_focus" -->
+			<roi1 type="string"> 0,127,0,63  </roi1>  <!-- 0,127,0,63  -->
+			<roi2 type="string"> 0,127,64,127</roi2>  <!--  0,127,64,127 -->		 
+		</camera_parameters>
+		<units_to_microns type="float">1.0</units_to_microns> <!-- affects direction and speed of piezo response: still a bit slow, could be larger? -->
+      </configuration>  
+    </pgrey_camera>
+
