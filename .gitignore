@@ -11,7 +11,14 @@
 *.inf
 *.off
 *.power
+*.tif
 /storm_control/test/data/*.xml
+
+
+##############
+## executables
+##############
+*.bat
 
 ##############
 ## camera offset files

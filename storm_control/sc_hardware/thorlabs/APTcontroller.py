@@ -47,8 +47,8 @@ class APTcontroller():
         # self.motorX.set_stage_axis_info(-25,25,1,1.0)
         # self.motorY.set_stage_axis_info(-25,25,1,1.0)
         
-        self.motorX.set_stage_axis_info(-250,250,1,1.0)   # <---   should become a parameter
-        self.motorY.set_stage_axis_info(-250,250,1,1.0)   # <--- should become a parameter
+        self.motorX.set_stage_axis_info(-65,65,1,1.0)   # <---   should become a parameter
+        self.motorY.set_stage_axis_info(-65,65,1,1.0)   # <--- should become a parameter
         # Connect to the stage.
         self.good = 1
 

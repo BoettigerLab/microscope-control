@@ -630,10 +630,12 @@ class HalCore(QtCore.QObject):
 
         # Notify the sender if errors occured while processing the
         # message and exit if the sender doesn't handle the error.
+
         if message.hasErrors():
-            if not message.getSource().handleErrors(sent_message):
+            if not message.getSource().handleErrors(message):   # sent_message
                 self.cleanUp()
                 return
+
 
         # Check the responses if we are in strict mode.
         if self.strict:

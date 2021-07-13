@@ -76,7 +76,7 @@ class AmplitudeMixin(object):
         Called at the start of filming by illumination.illumination. Devices should
         do what ever they need to do to get ready for filming.
         """
-        assert False
+        #assert False  # this surpresses error tracing
         
     
 class AmplitudeFunctionality(hardwareModule.HardwareFunctionality, AmplitudeMixin):

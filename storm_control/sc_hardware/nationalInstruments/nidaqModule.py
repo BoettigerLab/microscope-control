@@ -335,12 +335,15 @@ class NidaqModule(daqModule.DaqModule):
             # frequency so that we are ready at the start of the next frame.
             frequency = 1.01 * fps * float(self.oversampling)
 
+            wv_clock = self.timing.get("camera_fire_pin")
+            '''
             # If oversampling is 1 then just trigger the ao_task 
             # and do_task directly off the camera fire pin.
             if (self.oversampling == 1):
                 wv_clock = self.timing.get("camera_fire_pin")
             else:
                 wv_clock = self.timing.get("counter_out")
+            '''
 
             # Setup the counter.
             self.setupCounter(frequency)

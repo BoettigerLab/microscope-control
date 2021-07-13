@@ -345,9 +345,9 @@ class Channel(QtCore.QObject):
                 # 'Open' amplitude control.
                 cur_power = self.channel_ui.getAmplitude()
                 if self.amplitude_modulation is not None:
-                    # self.amplitude_modulation.startFilm(cur_power) # Hazen's new version, supposedly more hardware agnostic
-					self.amplitude_modulation.onOff(cur_power,True) # orig version AB - works better with CELESTA , from my 01/28/21 commit
-                    self.amplitude_modulation.output(cur_power) ) # orig version AB - works better with CELESTA  , from my 01/28/21 commit
+                    self.amplitude_modulation.startFilm(cur_power) # Hazen's new version, supposedly more hardware agnostic
+                    # self.amplitude_modulation.onOff(cur_power,True) # orig version AB - works better with CELESTA , from my 01/28/21 commit
+                    # self.amplitude_modulation.output(cur_power) # orig version AB - works better with CELESTA  , from my 01/28/21 commit
 
 
                 # Open shutter.
