@@ -1,0 +1,58 @@
+ <!-- DAQ control -->
+    <daq>
+      <module_name type="string">storm_control.sc_hardware.nationalInstruments.nidaqModule</module_name>
+      <class_name type="string">NidaqModule</class_name>
+
+      <configuration>
+	<!-- This is the default timing source to use while filming. "Oversampled"
+	     films will use the counter for timing. The counter is driven by the
+	     camera fire pin. Other films will just use the camera fire pin directly.
+		 rising_edge specifies whether the counter is incremented upon the 
+		 rising (True) or falling (False) edge of the camera signal
+	-->
+        <timing>
+          <camera_fire_pin type="string">/Dev1/PFI0</camera_fire_pin>  <!-- PFI8 -->
+          <counter type="string">/Dev1/ctr0</counter>
+          <rising_edge type="boolean">False</rising_edge>   <!-- falling edge -->
+        </timing>
+        
+        <!-- These are the things that we provide DAQ functionality for.
+             Other modules will request them with a 'get functionality'
+             message and "name" = "daq.xxx.yyy". -->
+        <ilm750>
+          <do_task>
+            <source type="string">/Dev1/port0/line4</source>
+          </do_task>
+        </ilm750>
+
+        <ilm647>
+          <do_task>
+            <source type="string">/Dev1/port0/line3</source>
+          </do_task>      
+        </ilm647>
+
+        <ilm561>
+          <do_task>
+            <source type="string">/Dev1/port0/line2</source>
+          </do_task>
+        </ilm561>
+
+        <ilm488>
+          <do_task>
+            <source type="string">/Dev1/port0/line1</source>
+          </do_task>
+        </ilm488>
+
+        <ilm405>
+          <do_task>
+            <source type="string">/Dev1/port0/line0</source>
+          </do_task>
+        </ilm405>   
+
+        <mcl>
+          <ao_task>
+            <source type="string">/Dev1/ao0</source>
+          </ao_task>
+        </mcl>        
+      </configuration>
+    </daq>
